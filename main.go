@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/blevesearch/bleve/v2"
 	"index/suffixarray"
 	"io/ioutil"
 	"log"
@@ -12,11 +13,11 @@ import (
 )
 
 func main() {
-	searcher := Searcher{}
-	err := searcher.Load("completeworks.txt")
-	if err != nil {
-		log.Fatal(err)
-	}
+	// searcher := Searcher{}
+	// err := searcher.Load("completeworks.txt")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
 	fs := http.FileServer(http.Dir("./static"))
 	http.Handle("/", fs)
@@ -35,10 +36,10 @@ func main() {
 	}
 }
 
-type Searcher struct {
-	CompleteWorks string
-	SuffixArray   *suffixarray.Index
-}
+// type Searcher struct {
+// 	CompleteWorks string
+// 	SuffixArray   *suffixarray.Index
+// }
 
 func handleSearch(searcher Searcher) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +49,23 @@ func handleSearch(searcher Searcher) func(w http.ResponseWriter, r *http.Request
 			w.Write([]byte("missing search query in URL params"))
 			return
 		}
-		results := searcher.Search(query[0])
+		index, _ := bleve.Open("completeworks.bleve")
+		query := bleve.NewMatchQuery(query[0])
+		search := bleve.NewSearchRequest(query)
+		search.Fields = []string{"*"}
+		searchResults, err := index.Search(search)
+
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		results := make([]interface{}, len(searchResults.Hits)+1)
+		for _, el := range searchResults.Hits {
+			results = append(results, el.Fields[""].(string))
+		}
+		// fmt.Println(results[2])
+		// results := searcher.Search(query[0])
 		buf := &bytes.Buffer{}
 		enc := json.NewEncoder(buf)
 		err := enc.Encode(results)
@@ -62,21 +79,21 @@ func handleSearch(searcher Searcher) func(w http.ResponseWriter, r *http.Request
 	}
 }
 
-func (s *Searcher) Load(filename string) error {
-	dat, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return fmt.Errorf("Load: %w", err)
-	}
-	s.CompleteWorks = string(dat)
-	s.SuffixArray = suffixarray.New(dat)
-	return nil
-}
+// func (s *Searcher) Load(filename string) error {
+// 	dat, err := ioutil.ReadFile(filename)
+// 	if err != nil {
+// 		return fmt.Errorf("Load: %w", err)
+// 	}
+// 	s.CompleteWorks = string(dat)
+// 	s.SuffixArray = suffixarray.New(dat)
+// 	return nil
+// }
 
-func (s *Searcher) Search(query string) []string {
-	idxs := s.SuffixArray.Lookup([]byte(query), -1)
-	results := []string{}
-	for _, idx := range idxs {
-		results = append(results, s.CompleteWorks[idx-250:idx+250])
-	}
-	return results
-}
+// func (s *Searcher) Search(query string) []string {
+// 	idxs := s.SuffixArray.Lookup([]byte(query), -1)
+// 	results := []string{}
+// 	for _, idx := range idxs {
+// 		results = append(results, s.CompleteWorks[idx-250:idx+250])
+// 	}
+// 	return results
+// }
