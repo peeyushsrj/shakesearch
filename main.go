@@ -12,6 +12,8 @@ import (
 	"os"
 )
 
+var index, _ = bleve.Open("completeworks2.bleve")
+
 func main() {
 	// searcher := Searcher{}
 	// err := searcher.Load("completeworks.txt")
@@ -44,34 +46,34 @@ func main() {
 func handleSearch(w http.ResponseWriter, r *http.Request) {
 	// return func(w http.ResponseWriter, r *http.Request) {
 	query, ok := r.URL.Query()["q"]
+	fmt.Println(query)
 	if !ok || len(query[0]) < 1 {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("missing search query in URL params"))
 		return
 	}
-	index, _ := bleve.Open("completeworks.bleve")
 	searchquery := bleve.NewMatchQuery(query[0])
 	search := bleve.NewSearchRequest(searchquery)
 	search.Fields = []string{"*"}
 	searchResults, err := index.Search(search)
 
 	if err != nil {
+		fmt.Println("!Bleeve search panic!")
 		fmt.Println(err)
 		return
 	}
-	fmt.Println(searchResults)
+	// fmt.Println(searchResults)
 
-	results := make([]interface{}, len(searchResults.Hits)+1)
+	results := make([]interface{}, 0, len(searchResults.Hits))
 	for _, el := range searchResults.Hits {
-		fmt.Println(el.Fields[""].(string))
 		results = append(results, el.Fields[""].(string))
 	}
-	// fmt.Println(results[2])
-	// results := searcher.Search(query[0])
+
 	buf := &bytes.Buffer{}
 	enc := json.NewEncoder(buf)
 	err = enc.Encode(results)
 	if err != nil {
+		fmt.Println("!Encoder panic!")
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("encoding failure"))
 		return
