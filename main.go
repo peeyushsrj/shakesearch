@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+
 	"github.com/blevesearch/bleve/v2"
+
 	// "index/suffixarray"
 	// "io/ioutil"
 	"log"
@@ -53,7 +55,7 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	searchquery := bleve.NewMatchQuery(query[0])
-	search := bleve.NewSearchRequest(searchquery)
+	search := bleve.NewSearchRequestOptions(searchquery, 1000000, 0, false)
 	search.Fields = []string{"*"}
 	searchResults, err := index.Search(search)
 
@@ -62,7 +64,7 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 		return
 	}
-	// fmt.Println(searchResults)
+	fmt.Println(searchResults)
 
 	results := make([]interface{}, 0, len(searchResults.Hits))
 	for _, el := range searchResults.Hits {
